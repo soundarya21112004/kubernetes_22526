@@ -1,0 +1,165 @@
+---
+# ==========================================
+# PHASE 1: COMMON CONFIGURATION (ALL NODES)
+# ==========================================
+- name: Prepare All Kubernetes Nodes
+  hosts: all
+  become: true
+  tasks:
+    - name: Update apt cache and upgrade packages
+      apt:
+        update_cache: yes
+        upgrade: dist
+
+    - name: Disable Swap memory (Required by K8s)
+      command: swapoff -a
+
+    - name: Permanently remove Swap from fstab configuration
+      replace:
+        path: /etc/fstab
+        regexp: '^([^#].*swap.*)$'
+        replace: '# \1'
+
+    - name: Load required kernel modules for networking (overlay and br_netfilter)
+      shell: |
+        modprobe overlay
+        modprobe br_netfilter
+
+    - name: Set up sysctl network parameters for Kubernetes routing
+      copy:
+        content: |
+          net.bridge.bridge-nf-call-iptables  = 1
+          net.bridge.bridge-nf-call-ip6tables = 1
+          net.ipv4.ip_forward                 = 1
+        dest: /etc/sysctl.d/k8s.conf
+
+    - name: Apply sysctl parameters instantly
+      command: sysctl --system
+
+    - name: Install foundational pre-requisite tools
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+        state: present
+
+    - name: Install containerd container runtime engine
+      apt:
+        name: containerd
+        state: present
+
+    - name: Initialize clean containerd default settings configuration
+      shell: |
+        mkdir -p /etc/containerd
+        containerd config default > /etc/containerd/config.toml
+      args:
+        creates: /etc/containerd/config.toml
+
+    - name: Configure containerd to use SystemdCgroup driver
+      replace:
+        path: /etc/containerd/config.toml
+        regexp: 'SystemdCgroup = false'
+        replace: 'SystemdCgroup = true'
+
+    - name: Restart and activate containerd service
+      systemd:
+        name: containerd
+        state: restarted
+        enabled: yes
+
+    - name: Create apt keyrings folder directory
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Download Kubernetes official repository GPG authentication key
+      get_url:
+        url: https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key
+        dest: /etc/apt/keyrings/kubernetes-apt-keyring.asc
+        mode: '0644'
+
+    - name: Add official Kubernetes stable repository definition to apt
+      apt_repository:
+        repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.asc] https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /"
+        filename: kubernetes
+        state: present
+
+    - name: Install Kubernetes Cluster Deployment Core Tools (v1.28)
+      apt:
+        name:
+          - kubelet
+          - kubeadm
+          - kubectl
+        state: present
+        update_cache: yes
+
+    - name: Lock Kubernetes versions to prevent accidental runtime breaking upgrades
+      dpkg_selections:
+        name: "{{ item }}"
+        selection: hold
+      loop:
+        - kubelet
+        - kubeadm
+        - kubectl
+
+# ==========================================
+# PHASE 2: MASTER NODE ONLY INITIALIZATION
+# ==========================================
+- name: Initialize Kubernetes Master Control Plane
+  hosts: master
+  become: true
+  tasks:
+    - name: Initialize cluster control plane via kubeadm
+      command: kubeadm init --pod-network-cidr=10.244.0.0/16
+      register: kubeadm_init_output
+      args:
+        creates: /etc/kubernetes/admin.conf
+
+    - name: Set up local non-root kubectl management configurations directory
+      file:
+        path: /home/ubuntu/.kube
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+
+    - name: Copy cluster administrative credential records configuration safely
+      copy:
+        src: /etc/kubernetes/admin.conf
+        dest: /home/ubuntu/.kube/config
+        remote_src: yes
+        owner: ubuntu
+        group: ubuntu
+        mode: '0600'
+
+    - name: Deploy Flannel network component interface for cluster routing pods
+      become: false
+      command: kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
+
+    - name: Generate unique, temporary single-use join tokens string for workers
+      command: kubeadm token create --print-join-command
+      register: join_command_output
+
+    - name: Set join command as global variable accessible by workers
+      set_fact:
+        join_command: "{{ join_command_output.stdout }}"
+
+# ==========================================
+# PHASE 3: WORKER NODES JOINING PROCESS
+# ==========================================
+- name: Join Worker Nodes to Master Core Cluster
+  hosts: workers
+  become: true
+  tasks:
+    - name: Check if node is already connected to avoid crashing duplication loops
+      stat:
+        path: /etc/kubernetes/kubelet.conf
+      register: kubelet_conf
+
+    - name: Link worker host nodes directly to Master control architecture
+      command: "{{ hostvars[groups['master'][0]]['join_command'] }}"
+      when: not kubelet_conf.stat.exists

@@ -1,0 +1,6 @@
+persistence:
+  enabled: false
+service:
+  type: NodePort
+  nodePort: 300host: 30091 # Exposes Grafana Dashboard directly on Port 30091
+adminPassword: "admin"

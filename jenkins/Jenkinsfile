@@ -1,0 +1,81 @@
+pipeline {
+    agent any
+
+    environment {
+        AWS_DEFAULT_REGION = 'ap-south-1'
+        // Pointing kubectl directly to use the master's configuration administratively
+        KUBECONFIG         = "${WORKSPACE}/ansible/admin.conf"
+    }
+
+    stages {
+        stage('Checkout Source Code') {
+            steps {
+                echo 'Pulling down latest infrastructure blueprints and code definitions...'
+                checkout scm
+            }
+        }
+
+        stage('Terraform Infra Apply') {
+            steps {
+                dir('terraform') {
+                    echo 'Initializing cloud resources provisioning via Terraform...'
+                    sh 'terraform init'
+                    sh 'terraform apply -auto-approve'
+                }
+            }
+        }
+
+        stage('Ansible K8s Cluster Setup') {
+            steps {
+                dir('ansible') {
+                    echo 'Waiting for SSH daemons to settle on AWS nodes...'
+                    sh 'sleep 30'
+                    echo 'Running playbook configurations across Master and Workers...'
+                    sh 'ansible-playbook playbook.yml'
+                    
+                    echo 'Fetching administrative credentials from Master node for Jenkins deployment...'
+                    // Securely copying the admin config file down to Jenkins context
+                    sh 'scp -i ../terraform/modules/keypair/k8s-key.pem -o StrictHostKeyChecking=no ubuntu@$(terraform -chdir=../terraform output -raw master_public_ip):~/.kube/config ./admin.conf'
+                }
+            }
+        }
+
+        stage('Deploy Application Lifecycle to K8s') {
+            steps {
+                dir('k8s') {
+                    echo 'Creating Project Environment Namespace...'
+                    sh 'kubectl apply -f namespace.yaml'
+                    
+                    echo 'Injecting configurations and secure environment credentials...'
+                    sh 'kubectl apply -f configmap.yaml -n production'
+                    sh 'kubectl apply -f secret.yaml -n production'
+                    
+                    echo 'Setting up persistent volume layers storage allocations...'
+                    sh 'kubectl apply -f pvc.yaml -n production'
+                    
+                    echo 'Deploying core backend and frontend application states...'
+                    sh 'kubectl apply -f deployment.yaml -n production'
+                    sh 'kubectl apply -f service.yaml -n production'
+                    
+                    echo 'Deploying supporting structural primitives...'
+                    sh 'kubectl apply -f daemonset.yaml -n production'
+                    sh 'kubectl apply -f statefulset.yaml -n production'
+                    sh 'kubectl apply -f ingress.yaml -n production'
+                    
+                    echo 'Running database migrations and checking background cron automation hooks...'
+                    sh 'kubectl apply -f job.yaml -n production'
+                    sh 'kubectl apply -f cronjob.yaml -n production'
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            echo 'Pipeline step execution completed.'
+        }
+        failure {
+            echo 'Pipeline failed! Check stages output logs.'
+        }
+    }
+}

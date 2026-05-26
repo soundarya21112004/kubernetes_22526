@@ -1,0 +1,6 @@
+server:
+  persistentVolume:
+    enabled: false # Keeps it lightweight for testing architectures
+  service:
+    type: NodePort
+    nodePort: 30090 # Exposes Prometheus UI directly on Port 30090

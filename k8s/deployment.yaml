@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-deployment
+  namespace: production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web-app
+  template:
+    metadata:
+      labels:
+        app: web-app
+    spec:
+      containers:
+        - name: application-container
+          image: nginx:latest # Replace with your backend or frontend build image
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: persistent-data
+              mountPath: /usr/share/nginx/html
+          envFrom:
+            - configMapRef:
+                name: app-config
+            - secretRef:
+                name: app-secret
+      volumes:
+        - name: persistent-data
+          persistentVolumeClaim:
+             OrcName: app-storage-pvc

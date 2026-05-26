@@ -1,0 +1,16 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: database-backup-cron
+  namespace: production
+spec:
+  schedule: "0 2 * * *" # Runs every single day at 2:00 AM
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: backup
+              image: busybox:latest
+              command: ["sh", "-c", "echo 'Taking database backup snapshot...'; sleep 5; echo 'Backup uploaded to AWS S3!'"]
+          restartPolicy: OnFailure
