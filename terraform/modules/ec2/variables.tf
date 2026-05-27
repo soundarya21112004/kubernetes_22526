@@ -1,14 +1,13 @@
+# modules/ec2/variables.tf
+
+variable "vpc_id" {
+  type = string
+}
+
 variable "subnet_id" {
-  type        = string
-  description = "The VPC Public Subnet ID where instances will be launched"
+  type = string
 }
 
-variable "security_group_id" {
-  type        = string
-  description = "The Security Group ID to attach to the instances"
-}
-
-variable "key_name" {
-  type        = string
-  description = "The SSH Key Pair name for logging into the instances"
+variable "sg_id" {
+  type = string
 }
