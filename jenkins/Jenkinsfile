@@ -1,6 +1,12 @@
 pipeline {
     agent any
 
+    options {
+        // Prevent Jenkins from reusing a stale workspace when source code changes
+        skipDefaultCheckout(false)
+    }
+
+
     environment {
         AWS_DEFAULT_REGION = 'ap-south-1'
         // Pointing kubectl directly to use the master's configuration administratively
