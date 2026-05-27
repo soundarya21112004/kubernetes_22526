@@ -25,6 +25,9 @@ pipeline {
 
         stage('Terraform Infra Apply') {
             steps {
+                // Ensure terraform workspace is always based on latest checkout
+                deleteDir()
+                checkout scm
                 dir('terraform') {
                     echo 'Initializing cloud resources provisioning via Terraform...'
                     sh 'terraform init'
@@ -32,6 +35,7 @@ pipeline {
                 }
             }
         }
+
 
         stage('Ansible K8s Cluster Setup') {
             steps {
