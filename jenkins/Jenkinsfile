@@ -28,17 +28,30 @@ pipeline {
         stage('Ansible K8s Cluster Setup') {
             steps {
                 dir('ansible') {
+                    echo 'Generating Ansible inventory.ini from Terraform outputs...'
+                    sh """\
+                    cat > inventory.ini <<'EOF'
+                    [master]
+                    master ansible_host=$(terraform -chdir=../terraform output -raw master_public_ip)
+
+                    [workers]
+                    worker1 ansible_host=$(terraform -chdir=../terraform output -raw worker1_public_ip)
+                    worker2 ansible_host=$(terraform -chdir=../terraform output -raw worker2_public_ip)
+                    EOF
+                    """
+
                     echo 'Waiting for SSH daemons to settle on AWS nodes...'
                     sh 'sleep 30'
+
                     echo 'Running playbook configurations across Master and Workers...'
-                    sh 'ansible-playbook playbook.yml'
-                    
+                    sh 'ansible-playbook -i inventory.ini playbook.yml'
+
                     echo 'Fetching administrative credentials from Master node for Jenkins deployment...'
-                    // Securely copying the admin config file down to Jenkins context
                     sh 'scp -i ../terraform/modules/keypair/k8s-key.pem -o StrictHostKeyChecking=no ubuntu@$(terraform -chdir=../terraform output -raw master_public_ip):~/.kube/config ./admin.conf'
                 }
             }
         }
+
 
         stage('Deploy Application Lifecycle to K8s') {
             steps {
