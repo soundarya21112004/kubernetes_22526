@@ -27,8 +27,9 @@ pipeline {
             steps {
                 // Ensure terraform workspace is always based on latest checkout
                 deleteDir()
-                checkout scm
+                // checkout scm is only allowed for Multibranch/Pipeline-from-SCM; this is a simple job, so skip it.
                 dir('terraform') {
+
                     echo 'Initializing cloud resources provisioning via Terraform...'
                     sh 'terraform init'
                     sh 'terraform apply -auto-approve'

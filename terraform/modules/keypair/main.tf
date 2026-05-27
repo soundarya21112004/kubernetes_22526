@@ -9,11 +9,13 @@ resource "aws_key_pair" "generated" {
   key_name   = "k8s-jenkins-key"
   public_key = tls_private_key.rsa.public_key_openssh
 
-  # Avoid failing Jenkins on subsequent runs if keypair already exists
+  # If keypair already exists, don't try to update it (prevents InvalidKeyPair.Duplicate)
   lifecycle {
-    ignore_changes = [public_key]
+    create_before_destroy = false
+    ignore_changes        = [public_key]
   }
 }
+
 
 
 resource "local_file" "private_key" {
