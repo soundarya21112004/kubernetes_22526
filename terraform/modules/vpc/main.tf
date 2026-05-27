@@ -1,6 +1,8 @@
+# modules/vpc/main.tf
+
 resource "aws_vpc" "main" {
-  cidr_block       = "10.0.0.0/16"
-  enable_dns_hostnames = true # Good practice for Kubernetes cluster nodes
+  cidr_block           = "10.0.0.0/16"
+  enable_dns_hostnames = true 
 
   tags = {
     Name = "k8s-vpc"
