@@ -24,11 +24,17 @@ module "ec2" {
 }
 
 # Automatically creates your inventory file for the Ansible stage
-resource "local_file" "ansible_inventory" {
-  content = templatefile("${path.module}/templates/inventory.tpl", {
-    master_ip  = module.ec2.master_public_ip
-    worker1_ip = module.ec2.worker1_public_ip
-    worker2_ip = module.ec2.worker2_public_ip
-  })
-  filename = "../ansible/inventory.ini"
-}
+# NOTE: The previous template-based approach referenced a missing file
+# (`templates/inventory.tpl`) which breaks `terraform apply` in Jenkins.
+# Inventory generation is handled inside Jenkins instead.
+# (Keeping this block commented so Terraform remains stable.)
+#
+# resource "local_file" "ansible_inventory" {
+#   content = templatefile("${path.module}/templates/inventory.tpl", {
+#     master_ip  = module.ec2.master_public_ip
+#     worker1_ip = module.ec2.worker1_public_ip
+#     worker2_ip = module.ec2.worker2_public_ip
+#   })
+#   filename = "../ansible/inventory.ini"
+# }
+

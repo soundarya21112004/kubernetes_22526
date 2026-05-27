@@ -11,7 +11,9 @@ pipeline {
         stage('Checkout Source Code') {
             steps {
                 echo 'Pulling down latest infrastructure blueprints and code definitions...'
-                checkout scm
+                // For non-multibranch/job-from-SCM pipelines, rely on Jenkins default checkout workspace
+                // (checkout scm only works with Multibranch Pipeline / Pipeline from SCM)
+
             }
         }
 
@@ -29,16 +31,17 @@ pipeline {
             steps {
                 dir('ansible') {
                     echo 'Generating Ansible inventory.ini from Terraform outputs...'
-                    sh """\
-                    cat > inventory.ini <<'EOF'
+                    sh '''
+                    cat > inventory.ini <<EOF
                     [master]
-                    master ansible_host=$(terraform -chdir=../terraform output -raw master_public_ip)
+                    master ansible_host="$(terraform -chdir=../terraform output -raw master_public_ip)"
 
                     [workers]
-                    worker1 ansible_host=$(terraform -chdir=../terraform output -raw worker1_public_ip)
-                    worker2 ansible_host=$(terraform -chdir=../terraform output -raw worker2_public_ip)
+                    worker1 ansible_host="$(terraform -chdir=../terraform output -raw worker1_public_ip)"
+                    worker2 ansible_host="$(terraform -chdir=../terraform output -raw worker2_public_ip)"
                     EOF
-                    """
+                    '''
+
 
                     echo 'Waiting for SSH daemons to settle on AWS nodes...'
                     sh 'sleep 30'
