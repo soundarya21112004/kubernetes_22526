@@ -6,12 +6,12 @@ resource "tls_private_key" "rsa" {
 }
 
 resource "aws_key_pair" "generated" {
-  key_name   = "k8s-jenkins-key"  # 👈 Changed from "k8s-key"
+  key_name   = "k8s-jenkins-key"
   public_key = tls_private_key.rsa.public_key_openssh
 }
 
 resource "local_file" "private_key" {
   content         = tls_private_key.rsa.private_key_pem
-  filename        = "modules/keypair/k8s-jenkins-key.pem" # 👈 Updated filename too
+  filename        = "modules/keypair/k8s-jenkins-key.pem"
   file_permission = "0400"
 }
