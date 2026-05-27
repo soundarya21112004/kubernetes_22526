@@ -18,7 +18,10 @@ pipeline {
             steps {
                 echo 'Pulling down latest infrastructure blueprints and code definitions...'
                 // Ensure code is present in workspace for subsequent terraform/ansible steps
-                checkout scm
+                // (checkout scm works only for Multibranch/Pipeline-from-SCM jobs)
+                // For simple Jenkins jobs, workspace is already populated by Git SCM configuration.
+                // If this job is Multibranch, checkout scm can be re-enabled.
+                echo "Workspace assumed to contain repository sources (no checkout scm)."
             }
         }
 
