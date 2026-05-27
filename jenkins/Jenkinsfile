@@ -17,18 +17,16 @@ pipeline {
         stage('Checkout Source Code') {
             steps {
                 echo 'Pulling down latest infrastructure blueprints and code definitions...'
-                // For non-multibranch/job-from-SCM pipelines, rely on Jenkins default checkout workspace
-                // (checkout scm only works with Multibranch Pipeline / Pipeline from SCM)
-
+                // Ensure code is present in workspace for subsequent terraform/ansible steps
+                checkout scm
             }
         }
 
+
         stage('Terraform Infra Apply') {
             steps {
-                // Ensure terraform workspace is always based on latest checkout
-                deleteDir()
-                // checkout scm is only allowed for Multibranch/Pipeline-from-SCM; this is a simple job, so skip it.
                 dir('terraform') {
+
 
                     echo 'Initializing cloud resources provisioning via Terraform...'
                     sh 'terraform init'
